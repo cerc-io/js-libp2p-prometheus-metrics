@@ -1,5 +1,5 @@
 import type { CalculatedMetricOptions, Counter, CounterGroup, Metric, MetricGroup, MetricOptions, Metrics } from '@libp2p/interface-metrics'
-import { collectDefaultMetrics, DefaultMetricsCollectorConfiguration, register, Registry } from 'prom-client'
+import promImport, { RegistryType } from 'promjs'
 import type { MultiaddrConnection, Stream, Connection } from '@libp2p/interface-connection'
 import type { Duplex } from 'it-stream-types'
 import each from 'it-foreach'
@@ -19,18 +19,7 @@ export interface PrometheusMetricsInit {
    * Use a custom registry to register metrics.
    * By default, the global registry is used to register metrics.
    */
-  registry?: Registry
-
-  /**
-   * By default we collect default metrics - CPU, memory etc, to not do
-   * this, pass true here
-   */
-  collectDefaultMetrics?: boolean
-
-  /**
-   * prom-client options to pass to the `collectDefaultMetrics` function
-   */
-  defaultMetrics?: DefaultMetricsCollectorConfiguration
+  registry?: RegistryType
 
   /**
    * All metrics in prometheus are global so to prevent clashes in naming
@@ -41,25 +30,22 @@ export interface PrometheusMetricsInit {
 }
 
 export interface PrometheusCalculatedMetricOptions<T=number> extends CalculatedMetricOptions<T> {
-  registry?: Registry
+  registry: RegistryType
 }
 
 class PrometheusMetrics implements Metrics {
   private transferStats: Map<string, number>
-  private readonly registry?: Registry
+  private readonly registry: RegistryType
 
-  constructor (init?: Partial<PrometheusMetricsInit>) {
-    this.registry = init?.registry
+  constructor (init: Partial<PrometheusMetricsInit> = {}) {
+    // Workaround for using incorrect import according to promjs types
+    const { default: prom } = (promImport as unknown) as { default: () => RegistryType }
+    this.registry = init.registry ?? prom()
 
     if (init?.preserveExistingMetrics !== true) {
       log('Clearing existing metrics')
       metrics.clear()
-      ;(this.registry ?? register).clear()
-    }
-
-    if (init?.collectDefaultMetrics !== false) {
-      log('Collecting default metrics')
-      collectDefaultMetrics({ ...init?.defaultMetrics, register: this.registry ?? init?.defaultMetrics?.register })
+      this.registry.clear()
     }
 
     // holds global and per-protocol sent/received stats
@@ -167,6 +153,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerMetricGroup (name: string, opts: PrometheusCalculatedMetricOptions<Record<string, number>>): void
+  registerMetricGroup (name: string, opts: CalculatedMetricOptions<Record<string, number>>): void
   registerMetricGroup (name: string, opts?: MetricOptions): MetricGroup
   registerMetricGroup (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -225,6 +212,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerCounterGroup (name: string, opts: PrometheusCalculatedMetricOptions<Record<string, number>>): void
+  registerCounterGroup (name: string, opts: CalculatedMetricOptions<Record<string, number>>): void
   registerCounterGroup (name: string, opts?: MetricOptions): CounterGroup
   registerCounterGroup (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {

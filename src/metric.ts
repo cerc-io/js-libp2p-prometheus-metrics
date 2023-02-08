@@ -1,39 +1,39 @@
 import type { Metric, StopTimer, CalculateMetric } from '@libp2p/interface-metrics'
-import { CollectFunction, Gauge } from 'prom-client'
+import type { GaugeType } from 'promjs'
 import type { PrometheusCalculatedMetricOptions } from './index.js'
 import { normaliseString } from './utils.js'
 
 export class PrometheusMetric implements Metric {
-  private readonly gauge: Gauge
+  private readonly gauge: GaugeType
   private readonly calculators: CalculateMetric[]
 
   constructor (name: string, opts: PrometheusCalculatedMetricOptions) {
     name = normaliseString(name)
     const help = normaliseString(opts.help ?? name)
-    const labels = opts.label != null ? [normaliseString(opts.label)] : []
-    let collect: CollectFunction<Gauge<any>> | undefined
+    // TODO: Use labels in counter (not used in old code)
+    // const labels = opts.label != null ? [normaliseString(opts.label)] : []
+    // let collect: any | undefined
     this.calculators = []
 
     // calculated metric
-    if (opts?.calculate != null) {
-      this.calculators.push(opts.calculate)
-      const self = this
+    // TODO: Implement and use collect
+    // if (opts?.calculate != null) {
+    //   this.calculators.push(opts.calculate)
+    //   const self = this
 
-      collect = async function () {
-        const values = await Promise.all(self.calculators.map(async calculate => await calculate()))
-        const sum = values.reduce((acc, curr) => acc + curr, 0)
+    //   collect = async function () {
+    //     const values = await Promise.all(self.calculators.map(async calculate => await calculate()))
+    //     const sum = values.reduce((acc, curr) => acc + curr, 0)
 
-        this.set(sum)
-      }
-    }
+    //     this.set(sum)
+    //   }
+    // }
 
-    this.gauge = new Gauge({
+    this.gauge = opts.registry.create(
+      'gauge',
       name,
-      help,
-      labelNames: labels,
-      registers: opts.registry !== undefined ? [opts.registry] : undefined,
-      collect
-    })
+      help
+    )
   }
 
   addCalculator (calculator: CalculateMetric) {
@@ -45,11 +45,11 @@ export class PrometheusMetric implements Metric {
   }
 
   increment (value: number = 1): void {
-    this.gauge.inc(value)
+    this.gauge.add(value)
   }
 
   decrement (value: number = 1): void {
-    this.gauge.dec(value)
+    this.gauge.sub(value)
   }
 
   reset (): void {
@@ -57,6 +57,12 @@ export class PrometheusMetric implements Metric {
   }
 
   timer (): StopTimer {
-    return this.gauge.startTimer()
+    const startDate = new Date()
+
+    return () => {
+      const timeElapsedInMs = (new Date()).getTime() - startDate.getTime()
+
+      this.gauge.set(timeElapsedInMs / 1000)
+    }
   }
 }
