@@ -69,12 +69,23 @@ class PrometheusMetrics implements Metrics {
     })
 
     log('Collecting memory metrics')
-    this.registerMetricGroup('nodejs_memory_usage_bytes', {
+    this.registerMetricGroup('js_memory_usage_bytes', {
       label: 'memory',
       calculate: () => {
-        return {
-          ...process.memoryUsage()
+        const output: Record<string, number> = {}
+
+        // TODO: Try using performance.measureUserAgentSpecificMemory()
+        // https://web.dev/monitor-total-page-memory-usage/#compatibility
+        const performance = window.performance as any
+
+        // https://developer.mozilla.org/en-US/docs/Web/API/Performance/memory
+        if (performance.memory !== undefined) {
+          output.jsHeapSizeLimit = performance.memory.jsHeapSizeLimit
+          output.totalJSHeapSize = performance.memory.totalJSHeapSize
+          output.usedJSHeapSize = performance.memory.usedJSHeapSize
         }
+
+        return output
       }
     })
   }
@@ -239,6 +250,12 @@ class PrometheusMetrics implements Metrics {
     if (opts.calculate == null) {
       return counterGroup
     }
+  }
+
+  async getMetrics () {
+    const calculatePromises = Array.from(metrics.values(), async metric => metric.calculate())
+    await Promise.all(calculatePromises)
+    return this.registry.metrics()
   }
 }
 

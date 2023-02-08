@@ -12,28 +12,25 @@ export class PrometheusMetric implements Metric {
     const help = normaliseString(opts.help ?? name)
     // TODO: Use labels in counter (not used in old code)
     // const labels = opts.label != null ? [normaliseString(opts.label)] : []
-    // let collect: any | undefined
     this.calculators = []
 
     // calculated metric
-    // TODO: Implement and use collect
-    // if (opts?.calculate != null) {
-    //   this.calculators.push(opts.calculate)
-    //   const self = this
-
-    //   collect = async function () {
-    //     const values = await Promise.all(self.calculators.map(async calculate => await calculate()))
-    //     const sum = values.reduce((acc, curr) => acc + curr, 0)
-
-    //     this.set(sum)
-    //   }
-    // }
+    if (opts?.calculate != null) {
+      this.calculators.push(opts.calculate)
+    }
 
     this.gauge = opts.registry.create(
       'gauge',
       name,
       help
     )
+  }
+
+  async calculate () {
+    const values = await Promise.all(this.calculators.map(async calculate => await calculate()))
+    const sum = values.reduce((acc, curr) => acc + curr, 0)
+
+    this.gauge.set(sum)
   }
 
   addCalculator (calculator: CalculateMetric) {

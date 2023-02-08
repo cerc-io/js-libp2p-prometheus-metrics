@@ -12,31 +12,28 @@ export class PrometheusCounterGroup implements CounterGroup, CalculatedMetric<Re
     name = normaliseString(name)
     const help = normaliseString(opts.help ?? name)
     this.label = normaliseString(opts.label ?? name)
-    // let collect: any | undefined
     this.calculators = []
 
     // calculated metric
-    // TODO: Implement and use collect
-    // if (opts?.calculate != null) {
-    //   this.calculators.push(opts.calculate)
-    //   const self = this
-
-    //   collect = async function () {
-    //     await Promise.all(self.calculators.map(async calculate => {
-    //       const values = await calculate()
-
-    //       Object.entries(values).forEach(([key, value]) => {
-    //         this.inc({ [label]: key }, value)
-    //       })
-    //     }))
-    //   }
-    // }
+    if (opts?.calculate != null) {
+      this.calculators.push(opts.calculate)
+    }
 
     this.counter = opts.registry.create(
       'counter',
       name,
       help
     )
+  }
+
+  async calculate () {
+    await Promise.all(this.calculators.map(async calculate => {
+      const values = await calculate()
+
+      Object.entries(values).forEach(([key, value]) => {
+        this.counter.add(value, { [this.label]: key })
+      })
+    }))
   }
 
   addCalculator (calculator: CalculateMetric<Record<string, number>>) {
