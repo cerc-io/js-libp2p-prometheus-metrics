@@ -1,7 +1,7 @@
 import type { CalculateMetric, MetricGroup, StopTimer } from '@libp2p/interface-metrics'
 import type { GaugeType } from 'promjs'
 import type { PrometheusCalculatedMetricOptions } from './index.js'
-import { normaliseString, CalculatedMetric } from './utils.js'
+import { normaliseString, CalculatedMetric, decrementGauge } from './utils.js'
 
 export class PrometheusMetricGroup implements MetricGroup, CalculatedMetric<Record<string, number>> {
   private readonly gauge: GaugeType
@@ -58,12 +58,12 @@ export class PrometheusMetricGroup implements MetricGroup, CalculatedMetric<Reco
     Object.entries(values).forEach(([key, value]) => {
       const dec = typeof value === 'number' ? value : 1
 
-      this.gauge.sub(dec, { [this.label]: key })
+      decrementGauge(this.gauge, dec, { [this.label]: key })
     })
   }
 
   reset (): void {
-    this.gauge.reset()
+    this.gauge.resetAll()
   }
 
   timer (key: string): StopTimer {

@@ -27,10 +27,12 @@ export class PrometheusCounter implements Counter, CalculatedMetric {
   }
 
   async calculate () {
-    const values = await Promise.all(this.calculators.map(async calculate => await calculate()))
-    const sum = values.reduce((acc, curr) => acc + curr, 0)
+    if (this.calculators.length > 0) {
+      const values = await Promise.all(this.calculators.map(async calculate => await calculate()))
+      const sum = values.reduce((acc, curr) => acc + curr, 0)
 
-    this.counter.add(sum)
+      this.counter.add(sum)
+    }
   }
 
   addCalculator (calculator: CalculateMetric) {

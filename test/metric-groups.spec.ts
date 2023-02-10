@@ -1,6 +1,5 @@
 import { expect } from 'aegir/chai'
 import { prometheusMetrics } from '../src/index.js'
-import client from 'prom-client'
 import { randomMetricName } from './fixtures/random-metric-name.js'
 
 describe('metric groups', () => {
@@ -17,7 +16,7 @@ describe('metric groups', () => {
       [metricKey]: metricValue
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should increment a metric group without a value', async () => {
@@ -32,7 +31,7 @@ describe('metric groups', () => {
       [metricKey]: false
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} 1`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} 1`, 'did not include updated metric')
   })
 
   it('should increment a metric group with a value', async () => {
@@ -48,7 +47,7 @@ describe('metric groups', () => {
       [metricKey]: metricValue
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should decrement a metric group without a value', async () => {
@@ -63,7 +62,7 @@ describe('metric groups', () => {
       [metricKey]: false
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} -1`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} -1`, 'did not include updated metric')
   })
 
   it('should decrement a metric group with a value', async () => {
@@ -79,7 +78,7 @@ describe('metric groups', () => {
       [metricKey]: metricValue
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} -${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} -${metricValue}`, 'did not include updated metric')
   })
 
   it('should calculate a metric group value', async () => {
@@ -97,7 +96,7 @@ describe('metric groups', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should promise to calculate a metric group value', async () => {
@@ -115,7 +114,7 @@ describe('metric groups', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should reset a metric group', async () => {
@@ -131,11 +130,11 @@ describe('metric groups', () => {
       [metricKey]: metricValue
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${metricValue}`, 'did not include updated metric')
 
     metric.reset()
 
-    await expect(client.register.metrics()).to.eventually.not.include(metricKey, 'still included metric key')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName}{${metricLabel}="${metricKey}"} ${0}`, 'did not reset metric key')
   })
 
   it('should allow use of the same metric group from multiple reporters', async () => {
@@ -159,7 +158,7 @@ describe('metric groups', () => {
       [metricKey2]: metricValue2
     })
 
-    const reportedMetrics = await client.register.metrics()
+    const reportedMetrics = await metrics.getMetrics()
 
     expect(reportedMetrics).to.include(`${metricName}{${metricLabel}="${metricKey1}"} ${metricValue1}`, 'did not include updated metric')
     expect(reportedMetrics).to.include(`${metricName}{${metricLabel}="${metricKey2}"} ${metricValue2}`, 'did not include updated metric')

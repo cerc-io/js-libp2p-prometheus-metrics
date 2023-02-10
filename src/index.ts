@@ -11,7 +11,7 @@ import { logger } from '@libp2p/logger'
 
 const log = logger('libp2p:prometheus-metrics')
 
-// prom-client metrics are global
+// metrics are global
 const metrics = new Map<string, any>()
 
 export interface PrometheusMetricsInit {
@@ -27,6 +27,11 @@ export interface PrometheusMetricsInit {
    * pass true here
    */
   preserveExistingMetrics?: boolean
+
+  /**
+   * Method to calculate memory usage and update in metrics
+   */
+  calculateMemory?: () => Record<string, number>
 }
 
 export interface PrometheusCalculatedMetricOptions<T=number> extends CalculatedMetricOptions<T> {
@@ -68,25 +73,27 @@ class PrometheusMetrics implements Metrics {
       }
     })
 
+    const calculateMemory = () => {
+      const output: Record<string, number> = {}
+
+      // TODO: Try using performance.measureUserAgentSpecificMemory()
+      // https://web.dev/monitor-total-page-memory-usage/#compatibility
+      const performance = window.performance as any
+
+      // https://developer.mozilla.org/en-US/docs/Web/API/Performance/memory
+      if (performance.memory !== undefined) {
+        output.jsHeapSizeLimit = performance.memory.jsHeapSizeLimit
+        output.totalJSHeapSize = performance.memory.totalJSHeapSize
+        output.usedJSHeapSize = performance.memory.usedJSHeapSize
+      }
+
+      return output
+    }
+
     log('Collecting memory metrics')
     this.registerMetricGroup('js_memory_usage_bytes', {
       label: 'memory',
-      calculate: () => {
-        const output: Record<string, number> = {}
-
-        // TODO: Try using performance.measureUserAgentSpecificMemory()
-        // https://web.dev/monitor-total-page-memory-usage/#compatibility
-        const performance = window.performance as any
-
-        // https://developer.mozilla.org/en-US/docs/Web/API/Performance/memory
-        if (performance.memory !== undefined) {
-          output.jsHeapSizeLimit = performance.memory.jsHeapSizeLimit
-          output.totalJSHeapSize = performance.memory.totalJSHeapSize
-          output.usedJSHeapSize = performance.memory.usedJSHeapSize
-        }
-
-        return output
-      }
+      calculate: init.calculateMemory ?? calculateMemory
     })
   }
 
@@ -135,6 +142,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerMetric (name: string, opts: PrometheusCalculatedMetricOptions): void
+  registerMetric (name: string, opts: CalculatedMetricOptions): void
   registerMetric (name: string, opts?: MetricOptions): Metric
   registerMetric (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -194,6 +202,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerCounter (name: string, opts: PrometheusCalculatedMetricOptions): void
+  registerCounter (name: string, opts: CalculatedMetricOptions): void
   registerCounter (name: string, opts?: MetricOptions): Counter
   registerCounter (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -259,7 +268,7 @@ class PrometheusMetrics implements Metrics {
   }
 }
 
-export function prometheusMetrics (init?: Partial<PrometheusMetricsInit>): () => Metrics {
+export function prometheusMetrics (init?: Partial<PrometheusMetricsInit>): () => PrometheusMetrics {
   return () => {
     return new PrometheusMetrics(init)
   }

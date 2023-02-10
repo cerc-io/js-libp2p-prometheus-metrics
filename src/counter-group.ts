@@ -49,6 +49,6 @@ export class PrometheusCounterGroup implements CounterGroup, CalculatedMetric<Re
   }
 
   reset (): void {
-    this.counter.reset()
+    this.counter.resetAll()
   }
 }

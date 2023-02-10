@@ -1,7 +1,7 @@
 import type { Metric, StopTimer, CalculateMetric } from '@libp2p/interface-metrics'
 import type { GaugeType } from 'promjs'
 import type { PrometheusCalculatedMetricOptions } from './index.js'
-import { normaliseString } from './utils.js'
+import { decrementGauge, normaliseString } from './utils.js'
 
 export class PrometheusMetric implements Metric {
   private readonly gauge: GaugeType
@@ -27,10 +27,12 @@ export class PrometheusMetric implements Metric {
   }
 
   async calculate () {
-    const values = await Promise.all(this.calculators.map(async calculate => await calculate()))
-    const sum = values.reduce((acc, curr) => acc + curr, 0)
+    if (this.calculators.length > 0) {
+      const values = await Promise.all(this.calculators.map(async calculate => await calculate()))
+      const sum = values.reduce((acc, curr) => acc + curr, 0)
 
-    this.gauge.set(sum)
+      this.gauge.set(sum)
+    }
   }
 
   addCalculator (calculator: CalculateMetric) {
@@ -46,7 +48,7 @@ export class PrometheusMetric implements Metric {
   }
 
   decrement (value: number = 1): void {
-    this.gauge.sub(value)
+    decrementGauge(this.gauge, value)
   }
 
   reset (): void {
