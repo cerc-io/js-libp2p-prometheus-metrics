@@ -1,5 +1,5 @@
 import type { CalculatedMetricOptions, Counter, CounterGroup, Metric, MetricGroup, MetricOptions, Metrics } from '@libp2p/interface-metrics'
-import promImport, { RegistryType, CollectorType, HistogramType, GaugeType, CounterType } from 'promjs'
+import promImport, { RegistryType, GaugeType, CounterType } from 'promjs'
 import type { MultiaddrConnection, Stream, Connection } from '@libp2p/interface-connection'
 import type { Duplex } from 'it-stream-types'
 import each from 'it-foreach'
@@ -14,22 +14,27 @@ const log = logger('libp2p:prometheus-metrics')
 // metrics are global
 const metrics = new Map<string, any>()
 
-type CollectorForType<T extends CollectorType> =
-  T extends 'histogram' ? HistogramType :
-    T extends 'gauge' ? GaugeType :
-      T extends 'counter' ? CounterType :
-        never
+type Libp2pCollectorType = 'gauge' | 'counter'
 
-interface RegistryItem<T extends CollectorType> {
-  [key: string]: {
-    type: T
-    help: string
-    instance: CollectorForType<T>
-  }
+type CollectorForType<T extends Libp2pCollectorType> =
+  T extends 'gauge' ? GaugeType :
+    T extends 'counter' ? CounterType :
+      never
+
+interface RegistryItem<T extends Libp2pCollectorType> {
+  [key: string]: RegistryMetricData<T>
 }
 
-export type MetricsMap = {
-  [K in CollectorType]: RegistryItem<K>
+type MetricsMap = {
+  [K in Libp2pCollectorType]: RegistryItem<K>
+}
+
+export type { Libp2pCollectorType as CollectorType }
+
+export interface RegistryMetricData<T extends Libp2pCollectorType> {
+  type: T
+  help: string
+  instance: CollectorForType<T>
 }
 
 export interface PrometheusMetricsInit {
@@ -298,8 +303,23 @@ export class PrometheusMetrics implements Metrics {
   async getMetricsAsMap () {
     await this._updateMetrics()
 
-    // Workaround to access private data
-    return (this.registry as any).data as MetricsMap
+    // Restructure registry data to Map<string, { type, instance }>
+    const metricsMap = Object.values(
+      // Workaround to access private data
+      (this.registry as any).data as MetricsMap
+    ).reduce(
+      (acc: Map<string, RegistryMetricData<Libp2pCollectorType>>, typedMetrics) => {
+        Object.entries(typedMetrics)
+          .forEach(([name, data]) => {
+            acc.set(name, data)
+          })
+
+        return acc
+      },
+      new Map()
+    )
+
+    return metricsMap
   }
 }
 
