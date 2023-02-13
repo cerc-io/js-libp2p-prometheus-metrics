@@ -1,5 +1,5 @@
 import type { CalculatedMetricOptions, Counter, CounterGroup, Metric, MetricGroup, MetricOptions, Metrics } from '@libp2p/interface-metrics'
-import promImport, { RegistryType } from 'promjs'
+import promImport, { RegistryType, CollectorType, HistogramType, GaugeType, CounterType } from 'promjs'
 import type { MultiaddrConnection, Stream, Connection } from '@libp2p/interface-connection'
 import type { Duplex } from 'it-stream-types'
 import each from 'it-foreach'
@@ -13,6 +13,24 @@ const log = logger('libp2p:prometheus-metrics')
 
 // metrics are global
 const metrics = new Map<string, any>()
+
+type CollectorForType<T extends CollectorType> =
+  T extends 'histogram' ? HistogramType :
+    T extends 'gauge' ? GaugeType :
+      T extends 'counter' ? CounterType :
+        never
+
+interface RegistryItem<T extends CollectorType> {
+  [key: string]: {
+    type: T
+    help: string
+    instance: CollectorForType<T>
+  }
+}
+
+export type MetricsMap = {
+  [K in CollectorType]: RegistryItem<K>
+}
 
 export interface PrometheusMetricsInit {
   /**
@@ -38,7 +56,7 @@ export interface PrometheusCalculatedMetricOptions<T=number> extends CalculatedM
   registry: RegistryType
 }
 
-class PrometheusMetrics implements Metrics {
+export class PrometheusMetrics implements Metrics {
   private transferStats: Map<string, number>
   private readonly registry: RegistryType
 
@@ -125,6 +143,14 @@ class PrometheusMetrics implements Metrics {
     stream.source = each(source, buf => {
       self._incrementValue(`${name} received`, buf.byteLength)
     })
+  }
+
+  /**
+   * Run calculations in all registered metrics and updated registry data
+   */
+  async _updateMetrics () {
+    const calculatePromises = Array.from(metrics.values(), async metric => metric.calculate())
+    await Promise.all(calculatePromises)
   }
 
   trackMultiaddrConnection (maConn: MultiaddrConnection): void {
@@ -261,10 +287,19 @@ class PrometheusMetrics implements Metrics {
     }
   }
 
+  /**
+   * Get metrics report in text similar to prom-client register.metrics()
+   */
   async getMetrics () {
-    const calculatePromises = Array.from(metrics.values(), async metric => metric.calculate())
-    await Promise.all(calculatePromises)
+    await this._updateMetrics()
     return this.registry.metrics()
+  }
+
+  async getMetricsAsMap () {
+    await this._updateMetrics()
+
+    // Workaround to access private data
+    return (this.registry as any).data as MetricsMap
   }
 }
 

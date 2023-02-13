@@ -12,22 +12,15 @@ describe('custom registry', () => {
     const metricName = randomMetricName()
     const metricValue = 5
 
-    const promOptions = {
-      registry,
-      // Passing empty method as custom registry doesn't calculate metrics on scraping
-      // TODO: Add method in metrics to get values for specified metric
-      calculateMemory: () => ({})
-    }
-
-    const metrics = prometheusMetrics(promOptions)()
+    const metrics = prometheusMetrics({ registry })()
     const metric = metrics.registerMetric(metricName)
     metric.update(metricValue)
 
-    const customRegistryReport = registry.metrics()
-    expect(customRegistryReport).to.include(`# TYPE ${metricName} gauge`, 'did not include metric type')
-    expect(customRegistryReport).to.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    const customRegistryMetric = registry.get('gauge', metricName)
+    expect(customRegistryMetric?.get()?.value).to.be.equal(metricValue, 'did not update custom registry')
 
-    const internalRegistryReport = await metrics.getMetrics()
-    expect(internalRegistryReport).to.be.equal(customRegistryReport)
+    const internalRegistryData = await metrics.getMetricsAsMap()
+    const internalRegistryMetric = internalRegistryData.gauge[metricName].instance
+    expect(internalRegistryMetric?.get()?.value).to.be.equal(metricValue, 'did not update internal registry')
   })
 })
