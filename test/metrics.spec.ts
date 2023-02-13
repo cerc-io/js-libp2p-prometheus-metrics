@@ -1,6 +1,5 @@
 import { expect } from 'aegir/chai'
 import { prometheusMetrics } from '../src/index.js'
-import client from 'prom-client'
 import { randomMetricName } from './fixtures/random-metric-name.js'
 
 describe('metrics', () => {
@@ -11,7 +10,7 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.update(metricValue)
 
-    const report = await client.register.metrics()
+    const report = await metrics.getMetrics()
     expect(report).to.include(`# TYPE ${metricName} gauge`, 'did not include metric type')
     expect(report).to.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
@@ -22,7 +21,7 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.increment()
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} 1`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} 1`, 'did not include updated metric')
   })
 
   it('should increment a metric with a value', async () => {
@@ -32,7 +31,7 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.increment(metricValue)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should decrement a metric without a value', async () => {
@@ -41,7 +40,7 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.decrement()
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} -1`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} -1`, 'did not include updated metric')
   })
 
   it('should decrement a metric with a value', async () => {
@@ -51,7 +50,7 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.decrement(metricValue)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} -${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} -${metricValue}`, 'did not include updated metric')
   })
 
   it('should calculate a metric', async () => {
@@ -64,7 +63,7 @@ describe('metrics', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should promise to calculate a metric', async () => {
@@ -77,7 +76,7 @@ describe('metrics', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should reset a metric', async () => {
@@ -87,11 +86,11 @@ describe('metrics', () => {
     const metric = metrics.registerMetric(metricName)
     metric.update(metricValue)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`)
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`)
 
     metric.reset()
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} 0`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} 0`, 'did not include updated metric')
   })
 
   it('should allow use of the same metric from multiple reporters', async () => {
@@ -109,6 +108,6 @@ describe('metrics', () => {
     })
     metric2.update(metricValue2)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue2}`)
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue2}`)
   })
 })

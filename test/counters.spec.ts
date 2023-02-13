@@ -1,6 +1,5 @@
 import { expect } from 'aegir/chai'
 import { prometheusMetrics } from '../src/index.js'
-import client from 'prom-client'
 import { randomMetricName } from './fixtures/random-metric-name.js'
 
 describe('counters', () => {
@@ -10,7 +9,7 @@ describe('counters', () => {
     const metric = metrics.registerCounter(metricName)
     metric.increment()
 
-    const report = await client.register.metrics()
+    const report = await metrics.getMetrics()
     expect(report).to.include(`# TYPE ${metricName} counter`, 'did not include metric type')
     expect(report).to.include(`${metricName} 1`, 'did not include updated metric')
   })
@@ -22,7 +21,7 @@ describe('counters', () => {
     const metric = metrics.registerCounter(metricName)
     metric.increment(metricValue)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should calculate a counter', async () => {
@@ -35,7 +34,7 @@ describe('counters', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should promise to calculate a counter', async () => {
@@ -48,7 +47,7 @@ describe('counters', () => {
       }
     })
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`, 'did not include updated metric')
   })
 
   it('should reset a counter', async () => {
@@ -58,11 +57,11 @@ describe('counters', () => {
     const metric = metrics.registerCounter(metricName)
     metric.increment(metricValue)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue}`)
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue}`)
 
     metric.reset()
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} 0`, 'did not include updated metric')
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} 0`, 'did not include updated metric')
   })
 
   it('should allow use of the same counter from multiple reporters', async () => {
@@ -80,6 +79,6 @@ describe('counters', () => {
     })
     metric2.increment(metricValue2)
 
-    await expect(client.register.metrics()).to.eventually.include(`${metricName} ${metricValue1 + metricValue2}`)
+    await expect(metrics.getMetrics()).to.eventually.include(`${metricName} ${metricValue1 + metricValue2}`)
   })
 })

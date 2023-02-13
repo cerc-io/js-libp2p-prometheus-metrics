@@ -1,5 +1,5 @@
 {
-  "name": "@libp2p/prometheus-metrics",
+  "name": "@cerc-io/prom-browser-metrics",
   "version": "1.1.3",
   "description": "Collect libp2p metrics for scraping by Prometheus or Graphana",
   "author": "",
@@ -126,9 +126,9 @@
     "lint": "aegir lint",
     "dep-check": "aegir dep-check",
     "build": "aegir build",
-    "test": "aegir test -t node",
-    "test:node": "aegir test -t node --cov",
-    "test:electron-main": "aegir test -t electron-main --cov",
+    "test": "aegir test -t browser",
+    "test:chrome": "aegir test -t browser -f \"./dist/test/**/*.spec.js\" --cov",
+    "test:firefox": "aegir test -t browser -f \"./dist/test/**/*.spec.js\" -- --browser firefox",
     "release": "aegir release",
     "docs": "aegir docs"
   },
@@ -137,21 +137,18 @@
     "@libp2p/interface-metrics": "^4.0.2",
     "@libp2p/logger": "^2.0.2",
     "it-foreach": "^1.0.0",
-    "it-stream-types": "^1.0.4"
+    "it-stream-types": "^1.0.4",
+    "promjs": "^0.4.2"
   },
   "devDependencies": {
-    "@libp2p/interface-mocks": "^8.0.4",
-    "@libp2p/peer-id-factory": "^1.0.19",
+    "@libp2p/interface-mocks": "^9.1.1",
+    "@libp2p/peer-id-factory": "^2.0.1",
     "@multiformats/multiaddr": "^11.0.7",
     "aegir": "^37.5.6",
     "it-drain": "^2.0.0",
     "it-pair": "^2.0.3",
     "it-pipe": "^2.0.4",
     "p-defer": "^4.0.0",
-    "prom-client": "^14.1.0",
     "uint8arraylist": "^2.3.3"
-  },
-  "peerDependencies": {
-    "prom-client": "^14.1.0"
   }
 }

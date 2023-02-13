@@ -1,6 +1,5 @@
 import { expect } from 'aegir/chai'
 import { prometheusMetrics } from '../src/index.js'
-import client from 'prom-client'
 import type { Connection } from '@libp2p/interface-connection'
 import { connectionPair, mockRegistrar, mockMultiaddrConnPair } from '@libp2p/interface-mocks'
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
@@ -54,7 +53,7 @@ describe('streams', () => {
     // wait for all bytes to be received
     await deferred.promise
 
-    const scrapedMetrics = await client.register.metrics()
+    const scrapedMetrics = await metrics.getMetrics()
     expect(scrapedMetrics).to.include(`libp2p_data_transfer_bytes_total{protocol="global sent"} ${data.length}`)
   })
 
@@ -89,7 +88,7 @@ describe('streams', () => {
     // wait for all bytes to be received
     await deferred.promise
 
-    const scrapedMetrics = await client.register.metrics()
+    const scrapedMetrics = await metrics.getMetrics()
     expect(scrapedMetrics).to.include(`libp2p_data_transfer_bytes_total{protocol="global received"} ${data.length}`)
   })
 
@@ -121,7 +120,7 @@ describe('streams', () => {
       data
     ])
 
-    const scrapedMetrics = await client.register.metrics()
+    const scrapedMetrics = await metrics.getMetrics()
     expect(scrapedMetrics).to.include(`libp2p_data_transfer_bytes_total{protocol="${protocol} sent"} ${data.length}`)
   })
 
@@ -161,7 +160,7 @@ describe('streams', () => {
     // wait for data to have been transferred
     await deferred.promise
 
-    const scrapedMetrics = await client.register.metrics()
+    const scrapedMetrics = await metrics.getMetrics()
     expect(scrapedMetrics).to.include(`libp2p_data_transfer_bytes_total{protocol="${protocol} received"} ${data.length}`)
   })
 })

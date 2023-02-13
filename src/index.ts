@@ -1,5 +1,5 @@
 import type { CalculatedMetricOptions, Counter, CounterGroup, Metric, MetricGroup, MetricOptions, Metrics } from '@libp2p/interface-metrics'
-import { collectDefaultMetrics, DefaultMetricsCollectorConfiguration, register, Registry } from 'prom-client'
+import promImport, { RegistryType, CollectorType, HistogramType, GaugeType, CounterType } from 'promjs'
 import type { MultiaddrConnection, Stream, Connection } from '@libp2p/interface-connection'
 import type { Duplex } from 'it-stream-types'
 import each from 'it-foreach'
@@ -11,26 +11,33 @@ import { logger } from '@libp2p/logger'
 
 const log = logger('libp2p:prometheus-metrics')
 
-// prom-client metrics are global
+// metrics are global
 const metrics = new Map<string, any>()
+
+type CollectorForType<T extends CollectorType> =
+  T extends 'histogram' ? HistogramType :
+    T extends 'gauge' ? GaugeType :
+      T extends 'counter' ? CounterType :
+        never
+
+interface RegistryItem<T extends CollectorType> {
+  [key: string]: {
+    type: T
+    help: string
+    instance: CollectorForType<T>
+  }
+}
+
+export type MetricsMap = {
+  [K in CollectorType]: RegistryItem<K>
+}
 
 export interface PrometheusMetricsInit {
   /**
    * Use a custom registry to register metrics.
    * By default, the global registry is used to register metrics.
    */
-  registry?: Registry
-
-  /**
-   * By default we collect default metrics - CPU, memory etc, to not do
-   * this, pass true here
-   */
-  collectDefaultMetrics?: boolean
-
-  /**
-   * prom-client options to pass to the `collectDefaultMetrics` function
-   */
-  defaultMetrics?: DefaultMetricsCollectorConfiguration
+  registry?: RegistryType
 
   /**
    * All metrics in prometheus are global so to prevent clashes in naming
@@ -38,28 +45,30 @@ export interface PrometheusMetricsInit {
    * pass true here
    */
   preserveExistingMetrics?: boolean
+
+  /**
+   * Method to calculate memory usage and update in metrics
+   */
+  calculateMemory?: () => Record<string, number>
 }
 
 export interface PrometheusCalculatedMetricOptions<T=number> extends CalculatedMetricOptions<T> {
-  registry?: Registry
+  registry: RegistryType
 }
 
-class PrometheusMetrics implements Metrics {
+export class PrometheusMetrics implements Metrics {
   private transferStats: Map<string, number>
-  private readonly registry?: Registry
+  private readonly registry: RegistryType
 
-  constructor (init?: Partial<PrometheusMetricsInit>) {
-    this.registry = init?.registry
+  constructor (init: Partial<PrometheusMetricsInit> = {}) {
+    // Workaround for using incorrect import according to promjs types
+    const { default: prom } = (promImport as unknown) as { default: () => RegistryType }
+    this.registry = init.registry ?? prom()
 
     if (init?.preserveExistingMetrics !== true) {
       log('Clearing existing metrics')
       metrics.clear()
-      ;(this.registry ?? register).clear()
-    }
-
-    if (init?.collectDefaultMetrics !== false) {
-      log('Collecting default metrics')
-      collectDefaultMetrics({ ...init?.defaultMetrics, register: this.registry ?? init?.defaultMetrics?.register })
+      this.registry.clear()
     }
 
     // holds global and per-protocol sent/received stats
@@ -82,14 +91,27 @@ class PrometheusMetrics implements Metrics {
       }
     })
 
-    log('Collecting memory metrics')
-    this.registerMetricGroup('nodejs_memory_usage_bytes', {
-      label: 'memory',
-      calculate: () => {
-        return {
-          ...process.memoryUsage()
-        }
+    const calculateMemory = () => {
+      const output: Record<string, number> = {}
+
+      // TODO: Try using performance.measureUserAgentSpecificMemory()
+      // https://web.dev/monitor-total-page-memory-usage/#compatibility
+      const performance = window.performance as any
+
+      // https://developer.mozilla.org/en-US/docs/Web/API/Performance/memory
+      if (performance.memory !== undefined) {
+        output.jsHeapSizeLimit = performance.memory.jsHeapSizeLimit
+        output.totalJSHeapSize = performance.memory.totalJSHeapSize
+        output.usedJSHeapSize = performance.memory.usedJSHeapSize
       }
+
+      return output
+    }
+
+    log('Collecting memory metrics')
+    this.registerMetricGroup('js_memory_usage_bytes', {
+      label: 'memory',
+      calculate: init.calculateMemory ?? calculateMemory
     })
   }
 
@@ -123,6 +145,14 @@ class PrometheusMetrics implements Metrics {
     })
   }
 
+  /**
+   * Run calculations in all registered metrics and updated registry data
+   */
+  async _updateMetrics () {
+    const calculatePromises = Array.from(metrics.values(), async metric => metric.calculate())
+    await Promise.all(calculatePromises)
+  }
+
   trackMultiaddrConnection (maConn: MultiaddrConnection): void {
     this._track(maConn, 'global')
   }
@@ -138,6 +168,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerMetric (name: string, opts: PrometheusCalculatedMetricOptions): void
+  registerMetric (name: string, opts: CalculatedMetricOptions): void
   registerMetric (name: string, opts?: MetricOptions): Metric
   registerMetric (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -167,6 +198,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerMetricGroup (name: string, opts: PrometheusCalculatedMetricOptions<Record<string, number>>): void
+  registerMetricGroup (name: string, opts: CalculatedMetricOptions<Record<string, number>>): void
   registerMetricGroup (name: string, opts?: MetricOptions): MetricGroup
   registerMetricGroup (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -196,6 +228,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerCounter (name: string, opts: PrometheusCalculatedMetricOptions): void
+  registerCounter (name: string, opts: CalculatedMetricOptions): void
   registerCounter (name: string, opts?: MetricOptions): Counter
   registerCounter (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -225,6 +258,7 @@ class PrometheusMetrics implements Metrics {
   }
 
   registerCounterGroup (name: string, opts: PrometheusCalculatedMetricOptions<Record<string, number>>): void
+  registerCounterGroup (name: string, opts: CalculatedMetricOptions<Record<string, number>>): void
   registerCounterGroup (name: string, opts?: MetricOptions): CounterGroup
   registerCounterGroup (name: string, opts: any = {}): any {
     if (name == null ?? name.trim() === '') {
@@ -252,9 +286,24 @@ class PrometheusMetrics implements Metrics {
       return counterGroup
     }
   }
+
+  /**
+   * Get metrics report in text similar to prom-client register.metrics()
+   */
+  async getMetrics () {
+    await this._updateMetrics()
+    return this.registry.metrics()
+  }
+
+  async getMetricsAsMap () {
+    await this._updateMetrics()
+
+    // Workaround to access private data
+    return (this.registry as any).data as MetricsMap
+  }
 }
 
-export function prometheusMetrics (init?: Partial<PrometheusMetricsInit>): () => Metrics {
+export function prometheusMetrics (init?: Partial<PrometheusMetricsInit>): () => PrometheusMetrics {
   return () => {
     return new PrometheusMetrics(init)
   }

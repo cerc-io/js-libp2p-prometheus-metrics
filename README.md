@@ -40,15 +40,10 @@ const node = await createLibp2p({
 })
 ```
 
-Then use the `prom-client` module to supply metrics to the Prometheus/Graphana client using your http framework:
+Then use the `getMetrics` method to get stringified metrics:
 
 ```js
-import client from 'prom-client'
-
-async handler (request, h) {
-  return h.response(await client.register.metrics())
-    .type(client.register.contentType)
-}
+const metricsString = await node.metrics.getMetrics()
 ```
 
 All Prometheus metrics are global so there's no other work required to extract them.
