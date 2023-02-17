@@ -20,7 +20,7 @@ describe('custom registry', () => {
     expect(customRegistryMetric?.get()?.value).to.be.equal(metricValue, 'did not update custom registry')
 
     const internalRegistryData = await metrics.getMetricsAsMap()
-    const internalRegistryMetric = internalRegistryData.gauge[metricName].instance
+    const internalRegistryMetric = internalRegistryData.get(metricName)?.instance
     expect(internalRegistryMetric?.get()?.value).to.be.equal(metricValue, 'did not update internal registry')
   })
 })
