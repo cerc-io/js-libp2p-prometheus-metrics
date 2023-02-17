@@ -105,9 +105,9 @@ export class PrometheusMetrics implements Metrics {
 
       // https://developer.mozilla.org/en-US/docs/Web/API/Performance/memory
       if (performance.memory !== undefined) {
-        output.jsHeapSizeLimit = performance.memory.jsHeapSizeLimit
-        output.totalJSHeapSize = performance.memory.totalJSHeapSize
-        output.usedJSHeapSize = performance.memory.usedJSHeapSize
+        output['heap size limit'] = performance.memory.jsHeapSizeLimit
+        output['total heap size'] = performance.memory.totalJSHeapSize
+        output['used heap size'] = performance.memory.usedJSHeapSize
       }
 
       return output
@@ -300,7 +300,10 @@ export class PrometheusMetrics implements Metrics {
     return this.registry.metrics()
   }
 
-  async getMetricsAsMap () {
+  /**
+   * Get metrics data as map with registered metric names as keys
+   */
+  async getMetricsAsMap (): Promise<Map<string, RegistryMetricData<Libp2pCollectorType>>> {
     await this._updateMetrics()
 
     // Restructure registry data to Map<string, { type, instance }>
