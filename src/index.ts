@@ -14,6 +14,10 @@ const log = logger('libp2p:prometheus-metrics')
 // metrics are global
 const metrics = new Map<string, any>()
 
+// https://stackoverflow.com/a/31090240/10026807
+// eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+const isBrowser = new Function('try {return this===window;}catch(e){ return false;}') as () => boolean
+
 type Libp2pCollectorType = 'gauge' | 'counter'
 
 type CollectorForType<T extends Libp2pCollectorType> =
@@ -97,6 +101,17 @@ export class PrometheusMetrics implements Metrics {
     })
 
     const calculateMemory = () => {
+      if (!isBrowser()) {
+        const memoryUsage = process.memoryUsage()
+
+        return {
+          'resident set size': memoryUsage.rss,
+          'total heap size': memoryUsage.heapTotal,
+          'used heap size': memoryUsage.heapUsed,
+          'array buffers size': memoryUsage.arrayBuffers
+        }
+      }
+
       const output: Record<string, number> = {}
 
       // TODO: Try using performance.measureUserAgentSpecificMemory()
