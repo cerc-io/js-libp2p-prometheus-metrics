@@ -102,8 +102,13 @@ export class PrometheusMetrics implements Metrics {
 
     const calculateMemory = () => {
       if (!isBrowser()) {
+        const memoryUsage = process.memoryUsage()
+
         return {
-          ...process.memoryUsage()
+          'resident set size': memoryUsage.rss,
+          'total heap size': memoryUsage.heapTotal,
+          'used heap size': memoryUsage.heapUsed,
+          'array buffers size': memoryUsage.arrayBuffers
         }
       }
 
